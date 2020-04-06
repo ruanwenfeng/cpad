@@ -16,12 +16,18 @@ using Microsoft::WRL::ComPtr;
 using namespace DirectX;
 using namespace DirectX::PackedVector;
 
-struct Vertex
+struct PosVertex
 {
     XMFLOAT3 Pos;
+};
+struct ColorVertex
+{
     XMFLOAT4 Color;
 };
 
+Microsoft::WRL::ComPtr<ID3D12Resource> colorBufferGpu;
+Microsoft::WRL::ComPtr<ID3D12Resource> colorBufferUploader;
+D3D12_VERTEX_BUFFER_VIEW               colorbv;
 struct ObjectConstants
 {
     XMFLOAT4X4 WorldViewProj = MathHelper::Identity4x4();
@@ -202,6 +208,7 @@ void BoxApp::Draw(const GameTimer& gt)
 	mCommandList->SetGraphicsRootSignature(mRootSignature.Get());
 
 	mCommandList->IASetVertexBuffers(0, 1, &mBoxGeo->VertexBufferView());
+	mCommandList->IASetVertexBuffers(1, 1, &colorbv);
 	mCommandList->IASetIndexBuffer(&mBoxGeo->IndexBufferView());
     mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     
@@ -357,25 +364,21 @@ void BoxApp::BuildShadersAndInputLayout()
     mInputLayout =
     {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+        { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
     };
 }
 
 void BoxApp::BuildBoxGeometry()
 {
-    std::array<Vertex, 8> vertices =
-    {
-        Vertex({ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(Colors::White) }),
-		Vertex({ XMFLOAT3(-1.0f, +1.0f, -1.0f), XMFLOAT4(Colors::Black) }),
-		Vertex({ XMFLOAT3(+1.0f, +1.0f, -1.0f), XMFLOAT4(Colors::Red) }),
-		Vertex({ XMFLOAT3(+1.0f, -1.0f, -1.0f), XMFLOAT4(Colors::Green) }),
-		Vertex({ XMFLOAT3(-1.0f, -1.0f, +1.0f), XMFLOAT4(Colors::Blue) }),
-		Vertex({ XMFLOAT3(-1.0f, +1.0f, +1.0f), XMFLOAT4(Colors::Yellow) }),
-		Vertex({ XMFLOAT3(+1.0f, +1.0f, +1.0f), XMFLOAT4(Colors::Cyan) }),
-		Vertex({ XMFLOAT3(+1.0f, -1.0f, +1.0f), XMFLOAT4(Colors::Magenta) })
+    std::array<PosVertex, 8> posVertices = {
+        PosVertex({ XMFLOAT3(-1.0f, -1.0f, -1.0f) }), PosVertex({ XMFLOAT3(-1.0f, +1.0f, -1.0f) }), PosVertex({ XMFLOAT3(+1.0f, +1.0f, -1.0f) }), PosVertex({ XMFLOAT3(+1.0f, -1.0f, -1.0f) }),
+        PosVertex({ XMFLOAT3(-1.0f, -1.0f, +1.0f) }), PosVertex({ XMFLOAT3(-1.0f, +1.0f, +1.0f) }), PosVertex({ XMFLOAT3(+1.0f, +1.0f, +1.0f) }), PosVertex({ XMFLOAT3(+1.0f, -1.0f, +1.0f) }),
     };
-
-	std::array<std::uint16_t, 36> indices =
+    std::array<ColorVertex, 8> colorVertices = {
+        ColorVertex({ XMFLOAT4(Colors::White) }), ColorVertex({ XMFLOAT4(Colors::Black) }),  ColorVertex({ XMFLOAT4(Colors::Red) }),  ColorVertex({ XMFLOAT4(Colors::Green) }),
+        ColorVertex({ XMFLOAT4(Colors::Blue) }),  ColorVertex({ XMFLOAT4(Colors::Yellow) }), ColorVertex({ XMFLOAT4(Colors::Cyan) }), ColorVertex({ XMFLOAT4(Colors::Magenta) }),
+    };
+    std::array<std::uint16_t, 36> indices =
 	{
 		// front face
 		0, 1, 2,
@@ -401,26 +404,34 @@ void BoxApp::BuildBoxGeometry()
 		4, 0, 3,
 		4, 3, 7
 	};
+    // color input
 
-    const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+    const UINT                             cbByteSize = (UINT)colorVertices.size() * sizeof(ColorVertex);
+
+    colorBufferGpu         = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(), mCommandList.Get(), colorVertices.data(), cbByteSize, colorBufferUploader);
+    colorbv.BufferLocation = colorBufferGpu->GetGPUVirtualAddress();
+    colorbv.SizeInBytes    = cbByteSize;
+    colorbv.StrideInBytes  = sizeof(ColorVertex);
+
+    const UINT vbByteSize = (UINT)posVertices.size() * sizeof(PosVertex);
 	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
 
 	mBoxGeo = std::make_unique<MeshGeometry>();
 	mBoxGeo->Name = "boxGeo";
 
 	ThrowIfFailed(D3DCreateBlob(vbByteSize, &mBoxGeo->VertexBufferCPU));
-	CopyMemory(mBoxGeo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+	CopyMemory(mBoxGeo->VertexBufferCPU->GetBufferPointer(), posVertices.data(), vbByteSize);
 
 	ThrowIfFailed(D3DCreateBlob(ibByteSize, &mBoxGeo->IndexBufferCPU));
 	CopyMemory(mBoxGeo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
 
 	mBoxGeo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
-		mCommandList.Get(), vertices.data(), vbByteSize, mBoxGeo->VertexBufferUploader);
+		mCommandList.Get(), posVertices.data(), vbByteSize, mBoxGeo->VertexBufferUploader);
 
 	mBoxGeo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
 		mCommandList.Get(), indices.data(), ibByteSize, mBoxGeo->IndexBufferUploader);
 
-	mBoxGeo->VertexByteStride = sizeof(Vertex);
+	mBoxGeo->VertexByteStride = sizeof(PosVertex);
 	mBoxGeo->VertexBufferByteSize = vbByteSize;
 	mBoxGeo->IndexFormat = DXGI_FORMAT_R16_UINT;
 	mBoxGeo->IndexBufferByteSize = ibByteSize;
