@@ -26,6 +26,37 @@ static apr_pool_t*         root_pool          = NULL;
 static apr_array_header_t* plugin_list        = NULL;
 static apr_array_header_t* plugin_active_list = NULL;
 
+apr_status_t load_plugin_dso(const char* file_name, plugin_t** plugin, apr_pool_t* pool) {
+    apr_dso_handle_t*    dso_h       = NULL;
+    apr_dso_handle_sym_t init_plugin = NULL;
+
+    apr_status_t rv = apr_dso_load(&dso_h, file_name, pool);
+    fprintf(stdout, "load: %s 0X%p\n", file_name, dso_h);
+
+    FAIL_RETRUN(rv);
+
+    apr_pool_cleanup_register(pool, dso_h, dso_cleanup, apr_pool_cleanup_null);
+
+    rv = apr_dso_sym(&init_plugin, dso_h, "init_plugin");
+    FAIL_RETRUN(rv);
+
+    *plugin = apr_pcalloc(pool, sizeof(plugin_t));
+    POINTER_RETRUN(*plugin, rv);
+
+    plugin_private_t* plugin_private = apr_pcalloc(pool, sizeof(plugin_private_t));
+    POINTER_RETRUN(plugin_private, rv);
+
+    plugin_private->pool  = pool;
+    plugin_private->dso_h = dso_h;
+    (*plugin)->private       = plugin_private;
+    (*plugin)->plugin_alloc  = plugin_alloc;
+
+    rv = ((InitPlugin*)init_plugin)(*plugin);
+    FAIL_RETRUN(rv);
+    (*plugin)->status = PLUGIN_INITIALIZE;
+    return rv;
+}
+
 apr_status_t load_all_plugin(const char* plugin_folder, apr_pool_t* pool) {
 
     CREATE_CHILD_POOL(tmp, rv, pool);
@@ -48,34 +79,11 @@ apr_status_t load_all_plugin(const char* plugin_folder, apr_pool_t* pool) {
     char** list = (char**)result->elts;
     for (int i = 0; i < result->nelts; i++) {
         CREATE_CHILD_POOL(plugin_pool, rv, pool);
-
-        apr_dso_handle_t*    dso_h       = NULL;
-        apr_dso_handle_sym_t init_plugin = NULL;
-
-        rv = apr_dso_load(&dso_h, list[i], plugin_pool);
-        fprintf(stdout, "load: %s 0X%p\n", list[i], dso_h);
-
-        FAIL_CONTINUE(rv);
-
-        apr_pool_cleanup_register(plugin_pool, dso_h, dso_cleanup, apr_pool_cleanup_null);
-
-        rv = apr_dso_sym(&init_plugin, dso_h, "init_plugin");
-        FAIL_CONTINUE(rv);
-
-        plugin_t* plugin = apr_pcalloc(plugin_pool, sizeof(plugin_t));
+        plugin_t*            plugin      = NULL;
+        rv = load_plugin_dso(list[i], &plugin, plugin_pool);
+        FAIL_CHILD_CONTINUE(rv, plugin_pool);
         PONITER_CHILD_CONTINUE(plugin, plugin_pool);
 
-        plugin_private_t* plugin_private = apr_pcalloc(plugin_pool, sizeof(plugin_private_t));
-        PONITER_CHILD_CONTINUE(plugin_private, plugin_pool);
-
-        plugin_private->pool  = plugin_pool;
-        plugin_private->dso_h = dso_h;
-        plugin->private       = plugin_private;
-        plugin->plugin_alloc  = plugin_alloc;
-
-        rv = ((InitPlugin*)init_plugin)(plugin);
-        FAIL_CHILD_CONTINUE(rv, plugin_pool);
-        plugin->status                               = PLUGIN_INITIALIZE;
         APR_ARRAY_PUSH(get_plugin_list(), plugin_t*) = plugin;
 
         fprintf(stdout, "load complete: %s\n", list[i]);
