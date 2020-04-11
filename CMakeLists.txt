@@ -41,3 +41,4 @@ add_subdirectory(apr)
 
 add_subdirectory(core)
 add_subdirectory(demoplugin)
+add_subdirectory(MainApp)
