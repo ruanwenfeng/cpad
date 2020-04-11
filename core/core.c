@@ -1,5 +1,5 @@
-#include <stdio.h>
 #include <stdlib.h>
+#include <crtdbg.h>
 
 #include <apr_dso.h>
 #include <apr_errno.h>
@@ -146,6 +146,11 @@ void set_root_pool(apr_pool_t* pool) {
 }
 
 apr_status_t init_plugin_system() {
+#ifdef _DEBUG
+    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+    _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
+    _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
+#endif
     apr_status_t rv = apr_initialize();
     FAIL_RETRUN(rv);
     rv = apr_pool_create(&root_pool, NULL);

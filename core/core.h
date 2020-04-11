@@ -1,8 +1,10 @@
 #pragma once
 #include <assert.h>
+#include <stdio.h>
 
 #include <apr_pools.h>
 #include <apr_tables.h>
+#include <apr_errno.h>
 
 #include <plugin.h>
 

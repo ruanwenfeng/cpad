@@ -32,7 +32,7 @@ add_subdirectory(Box)
 add_subdirectory(Shapes)
 add_subdirectory(Common)
 add_subdirectory(imgui)
-add_subdirectory(ImApp)
+# add_subdirectory(ImApp)
 
 add_subdirectory(libuv)
 add_subdirectory(UvDemo)
