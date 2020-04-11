@@ -5,6 +5,7 @@ message("resource path = ${RESOURCE_DIR}")
 project(D12Pro)
 include_directories(
     # ".\\libuv\\include"
+    ${CMAKE_CURRENT_SOURCE_DIR}
     "apr/include"
     "build/apr"
 )
@@ -39,3 +40,4 @@ add_subdirectory(apr)
 
 
 add_subdirectory(core)
+add_subdirectory(demoplugin)

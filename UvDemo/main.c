@@ -1,59 +1,60 @@
 
 #define _CRTDBG_MAP_ALLOC  
 #include <stdlib.h>  
-#include <crtdbg.h> 
-
-
-#include <assert.h>
 #include <stdio.h>
+#include <crtdbg.h>
+
 
 #include <apr_pools.h>
-#include <uv.h>
 
-apr_status_t checker_cleanup(void* data) {
-    printf("checker_cleanup: %s\n", (char*)data);
-    return TRUE ? APR_SUCCESS : APR_EGENERAL;
-}
-apr_status_t success_cleanup(void* data) {
-    printf("success_cleanup: %s\n", (char*)data);
-    return APR_SUCCESS;
-}
+#include <core.h>
 
 int main(int argc, char* argv[]) {
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
     _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
+
+   apr_status_t rv  = init_plugin_system();
+   FAIL_RETRUN(rv);
+
+   rv              = load_all_plugin("C:/Users/ruanw/source/repos/d12/build/demoplugin", get_root_pool());
+   
+   char error[256] = { 0 };
+   if (rv != APR_SUCCESS) {
+       fprintf(stderr, "load plugin failed: %s", apr_strerror(rv, error, 256));
+       return rv;
+   }
+
+    // LoadLibrary(L"advapi32.dll");
+
     
-    LoadLibrary(L"advapi32.dll");
-    apr_status_t rv = apr_initialize();
 
-    assert(rv == APR_SUCCESS);
+    // apr_pool_t* pmain  = NULL;
+    // rv                 = apr_pool_create(&pmain, NULL);
 
-    apr_pool_t* pmain  = NULL;
-    rv                 = apr_pool_create(&pmain, NULL);
-    assert(rv == APR_SUCCESS);
-    assert(pmain);
 
-    char* p = calloc(99, 100);
+    // char* p = calloc(99, 100);
 
-    uv_loop_t *loop = apr_palloc(pmain,sizeof(uv_loop_t));
-    uv_loop_init(loop);
+    // uv_loop_t *loop = apr_palloc(pmain,sizeof(uv_loop_t));
+    // uv_loop_init(loop);
 
-    printf("Now quitting.\n");
+    // printf("Now quitting.\n");
 
-    apr_pool_cleanup_register(pmain, loop, uv_loop_close, apr_pool_cleanup_null);
+    // apr_pool_cleanup_register(pmain, loop, uv_loop_close, apr_pool_cleanup_null);
 
-    uv_run(loop, UV_RUN_DEFAULT);
+    // uv_run(loop, UV_RUN_DEFAULT);
 
+    print_plugin_info();
+
+    start_plugin_system();
 
 
 
-    apr_pool_clear(pmain);
-    apr_pool_destroy(pmain);
+    shutdown_plugin_system();
 
+    release_plugin_system();
+    fprintf(stderr, "app exit");
 
-    apr_terminate();
-    
     return 0;
 }
 // LoadLibrary(L"advapi32.dll");
