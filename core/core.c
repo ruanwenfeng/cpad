@@ -48,7 +48,7 @@ apr_status_t load_plugin_dso(const char* file_name, plugin_t** plugin, apr_pool_
 
     plugin_private->pool  = pool;
     plugin_private->dso_h = dso_h;
-    (*plugin)->private       = plugin_private;
+    (*plugin)->private_data       = plugin_private;
     (*plugin)->plugin_alloc  = plugin_alloc;
 
     rv = ((InitPlugin*)init_plugin)(*plugin);
@@ -95,7 +95,7 @@ apr_status_t load_all_plugin(const char* plugin_folder, apr_pool_t* pool) {
 }
 
 void* plugin_alloc(struct plugin_s* plugin, size_t size) {
-    return apr_palloc(plugin->private->pool, size);
+    return apr_palloc(plugin->private_data->pool, size);
 }
 
 void print_plugin_info() {
@@ -189,11 +189,11 @@ apr_status_t start_plugin_system() {
 
         for (int i = 0; i < get_plugin_list()->nelts; i++) {
             if (plugins[i]->status == PLUGIN_STARTED) continue;  // skip started plugin
-            if (plugins[i]->private->denped_check == NULL) plugins[i]->private->denped_check = apr_pcalloc(plugins[i]->private->pool, plugins[i]->depend_size * sizeof(int));
+            if (plugins[i]->private_data->denped_check == NULL) plugins[i]->private_data->denped_check = apr_pcalloc(plugins[i]->private_data->pool, plugins[i]->depend_size * sizeof(int));
             unsigned int check = 0;
             for (size_t j = 0; j < plugins[i]->depend_size && pre_start_level != NULL; j++) {
-                if (!plugins[i]->private->denped_check[j]) plugins[i]->private->denped_check[j] = check_plugin_version(plugins[i]->depend_on[j], pre_start_level);
-                if (plugins[i]->private->denped_check[j]) ++check;
+                if (!plugins[i]->private_data->denped_check[j]) plugins[i]->private_data->denped_check[j] = check_plugin_version(plugins[i]->depend_on[j], pre_start_level);
+                if (plugins[i]->private_data->denped_check[j]) ++check;
             }
             if (check < plugins[i]->depend_size) continue;
 
@@ -235,7 +235,7 @@ apr_status_t release_plugin_system() {
         plugins[i]->release_plugin();
     }
     for (int i = 0; i < get_plugin_list()->nelts; i++) {
-        apr_pool_t* pool = plugins[i]->private->pool;
+        apr_pool_t* pool = plugins[i]->private_data->pool;
         apr_pool_clear(pool);
         apr_pool_destroy(pool);
     }

@@ -6,8 +6,6 @@
 
 #include <plugin.h>
 
-
-
 #define FAIL_CHILD_RETRUN(rv, pool) \
     assert(pool != NULL);           \
     if (rv != APR_SUCCESS) {        \
@@ -57,12 +55,13 @@
     apr_status_t rv    = apr_pool_create(&child, pool); \
     FAIL_RETRUN(rv);
 
-
-
-
 typedef struct plugin_manager_s {
     plugin_t** plugins;
 } plugin_manager_t;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 apr_status_t init_plugin_system();
 apr_status_t start_plugin_system();
@@ -71,14 +70,16 @@ apr_status_t release_plugin_system();
 
 apr_status_t load_all_plugin(const char* plugin_folder, apr_pool_t* pool);
 
-void*        plugin_alloc(plugin_t* plugin, size_t size);
+void* plugin_alloc(plugin_t* plugin, size_t size);
 
 void print_plugin_info();
 void print_plugin_active_info();
 
-
-
-apr_pool_t* get_root_pool();
+apr_pool_t*         get_root_pool();
 apr_array_header_t* get_plugin_list();
 apr_array_header_t* get_plugin_active_list();
-void set_root_pool(apr_pool_t *);
+void                set_root_pool(apr_pool_t*);
+
+#ifdef __cplusplus
+}
+#endif

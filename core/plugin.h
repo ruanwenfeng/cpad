@@ -31,7 +31,7 @@ typedef struct plugin_s {
     const char*     description;
     const void*     parameter;
     plugin_status_t status;
-    struct plugin_private_s* private;
+    struct plugin_private_s* private_data;
 
     InitPlugin*    init_plugin;
     StartPlugin*   start_plugin;
