@@ -47,13 +47,14 @@ int main(int argc, char* argv[]) {
     print_plugin_info();
 
     start_plugin_system();
+    print_plugin_active_info();
 
 
 
     shutdown_plugin_system();
-
     release_plugin_system();
-    fprintf(stderr, "app exit\n");
+
+    fprintf(stdout, "app exit\n");
 
     return 0;
 }
