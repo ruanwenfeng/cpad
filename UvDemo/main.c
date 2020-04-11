@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
     shutdown_plugin_system();
 
     release_plugin_system();
-    fprintf(stderr, "app exit");
+    fprintf(stderr, "app exit\n");
 
     return 0;
 }

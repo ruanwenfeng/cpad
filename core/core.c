@@ -49,26 +49,26 @@ apr_status_t load_all_plugin(const char* plugin_folder, apr_pool_t* pool) {
         fprintf(stdout, "load: %s 0X%p\n", list[i], dso_h);
 
         FAIL_CONTINUE(rv);
-        
+
         apr_pool_cleanup_register(plugin_pool, dso_h, dso_cleanup, apr_pool_cleanup_null);
 
         rv = apr_dso_sym(&init_plugin, dso_h, "init_plugin");
         FAIL_CONTINUE(rv);
 
-        plugin_t* plugin = apr_palloc(plugin_pool, sizeof(plugin_t));
+        plugin_t* plugin = apr_pcalloc(plugin_pool, sizeof(plugin_t));
         PONITER_CHILD_CONTINUE(plugin, plugin_pool);
 
-        plugin_private_t* plugin_private = apr_palloc(plugin_pool, sizeof(plugin_private_t));
+        plugin_private_t* plugin_private = apr_pcalloc(plugin_pool, sizeof(plugin_private_t));
         PONITER_CHILD_CONTINUE(plugin_private, plugin_pool);
-        
-        plugin_private->pool             = plugin_pool;
-        plugin_private->dso_h            = dso_h;
-        plugin->private                  = plugin_private;
-        plugin->plugin_alloc             = plugin_alloc;
+
+        plugin_private->pool  = plugin_pool;
+        plugin_private->dso_h = dso_h;
+        plugin->private       = plugin_private;
+        plugin->plugin_alloc  = plugin_alloc;
 
         rv = ((InitPlugin*)init_plugin)(plugin);
         FAIL_CHILD_CONTINUE(rv, plugin_pool);
-
+        plugin->status                               = PLUGIN_INITIALIZE;
         APR_ARRAY_PUSH(get_plugin_list(), plugin_t*) = plugin;
 
         fprintf(stdout, "load complete: %s\n", list[i]);
@@ -79,15 +79,20 @@ apr_status_t load_all_plugin(const char* plugin_folder, apr_pool_t* pool) {
     SUCCESS_CHILD_RETRUN(rv, tmp);
 }
 
-void*        plugin_alloc(struct plugin_s* plugin, size_t size){
+void* plugin_alloc(struct plugin_s* plugin, size_t size) {
     return apr_palloc(plugin->private->pool, size);
 }
 
 void print_plugin_info() {
     plugin_t** plugins = (plugin_t**)get_plugin_list()->elts;
-    fprintf(stdout, "plugin size: %d\n", get_plugin_list()->nelts);
+    fprintf(stdout, "plugin size: %zu\n", sizeof(plugin_t));
+    fprintf(stdout, "plugin count: %d\n", get_plugin_list()->nelts);
     for (int i = 0; i < get_plugin_list()->nelts; i++) {
         fprintf(stdout, "plugin name: %s\n", plugins[i]->plugin_name);
+        fprintf(stdout, "plugin description: %s\n", plugins[i]->description);
+        for (size_t j = 0; j < plugins[i]->depend_size; j++) {
+            fprintf(stdout, "plugin depend on: %s\n", plugins[i]->depend_on[j]);
+        }
     }
 }
 
@@ -150,4 +155,3 @@ apr_status_t release_plugin_system() {
     apr_terminate();
     return APR_SUCCESS;
 }
-

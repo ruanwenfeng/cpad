@@ -7,18 +7,30 @@ typedef int StartPlugin();
 typedef int StopPlugin();
 typedef int ReleasePlugin();
 
+typedef enum plugin_status_s {
+    PLUGIN_UN_INIT    = 0,
+    PLUGIN_INITIALIZE = 1,
+    
+    PLUGIN_STARTED    = 2,
+    PLUGIN_STARTING   = 3,
+
+    PLUGIN_STOPED     = 4,
+    PLUGIN_STOPING    = 5,
+} plugin_status_t;
+
 typedef void* PluginAlloc(struct plugin_s* plugin, size_t size);
 
 struct plugin_private_s;
 
-
 typedef struct plugin_s {
-    char        plugin_name[128];  // plugin name, for display
-    char        plugin_id[32];
-    char        plugin_version[32];
-    char**      depend_on;
-    char*       description;
-    const void* parameter;
+    const char* plugin_name;  // plugin name, for display
+    const char* plugin_id;
+    const char* plugin_version;
+    const char*(*depend_on);
+    unsigned int    depend_size;
+    const char*     description;
+    const void*     parameter;
+    plugin_status_t status;
     struct plugin_private_s* private;
 
     InitPlugin*    init_plugin;
@@ -26,6 +38,6 @@ typedef struct plugin_s {
     StopPlugin*    stop_plugin;
     ReleasePlugin* release_plugin;
 
-    PluginAlloc*   plugin_alloc;
+    PluginAlloc* plugin_alloc;
 
 } plugin_t;
